@@ -1,0 +1,179 @@
+name: mapaengine
+
+services:
+  db:
+    image: postgis/postgis:18-3.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mapaengine}
+      POSTGRES_USER: ${POSTGRES_USER:-mapaengine}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - db_data:/var/lib/postgresql
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mapaengine} -d ${POSTGRES_DB:-mapaengine}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-init:
+    image: postgis/postgis:18-3.6
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mapaengine}
+      POSTGRES_DB: ${POSTGRES_DB:-mapaengine}
+      AUTHENTIK_POSTGRES_DB: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRES_USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+    entrypoint: ["/bin/bash", "/init/init-authentik.sh"]
+    secrets:
+      - postgres_password
+      - authentik_postgres_password
+    volumes:
+      - ./docker/db/init-authentik.sh:/init/init-authentik.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$(cat /run/secrets/redis_password)\""]
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/redis_password)\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  geoserver:
+    image: docker.osgeo.org/geoserver:3.0.0
+    restart: unless-stopped
+    environment:
+      GEOSERVER_ADMIN_USER: ${GEOSERVER_ADMIN_USER:-admin}
+      GEOSERVER_ADMIN_PASSWORD_FILE: /run/secrets/geoserver_admin_password
+    secrets:
+      - geoserver_admin_password
+    volumes:
+      - geoserver_data:/opt/geoserver_data
+    ports:
+      - "${GEOSERVER_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  pycsw:
+    image: geopython/pycsw:2.6.1
+    restart: unless-stopped
+    ports:
+      - "${PYCSW_PORT:-8000}:8000"
+    # TODO: conectar pycsw a la PostGIS 'mapaengine' (repository.database) cuando haya datos.
+    #   La imagen NO soporta *_FILE: hay que inyectar la password desde
+    #   /run/secrets/postgres_password con un entrypoint wrapper, montar un
+    #   pycsw.yml/.cfg con la conexión, e inicializar el repo (pycsw-admin setup_db).
+    #   Por ahora arranca con su repositorio sqlite de demostración.
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2026.5.2
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: file:///run/secrets/authentik_secret_key
+      AUTHENTIK_POSTGRESQL__HOST: ${POSTGRES_HOST:-db}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: file:///run/secrets/authentik_postgres_password
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: file:///run/secrets/redis_password
+    secrets:
+      - authentik_secret_key
+      - authentik_postgres_password
+      - redis_password
+    ports:
+      - "${AUTHENTIK_PORT:-9000}:9000"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2026.5.2
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: file:///run/secrets/authentik_secret_key
+      AUTHENTIK_POSTGRESQL__HOST: ${POSTGRES_HOST:-db}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: file:///run/secrets/authentik_postgres_password
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PASSWORD: file:///run/secrets/redis_password
+    secrets:
+      - authentik_secret_key
+      - authentik_postgres_password
+      - redis_password
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  backend:
+    profiles: ["portal"]
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_DB: ${POSTGRES_DB:-mapaengine}
+      POSTGRES_USER: ${POSTGRES_USER:-mapaengine}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      FASTAPI_SECRET_KEY_FILE: /run/secrets/fastapi_secret_key
+      OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+    secrets:
+      - postgres_password
+      - fastapi_secret_key
+      - oidc_client_secret
+    ports:
+      - "${BACKEND_PORT:-8001}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    profiles: ["portal"]
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  authentik_postgres_password:
+    file: ./secrets/authentik_postgres_password
+  geoserver_admin_password:
+    file: ./secrets/geoserver_admin_password
+  authentik_secret_key:
+    file: ./secrets/authentik_secret_key
+  oidc_client_secret:
+    file: ./secrets/oidc_client_secret
+  fastapi_secret_key:
+    file: ./secrets/fastapi_secret_key
+  redis_password:
+    file: ./secrets/redis_password
+
+volumes:
+  db_data:
+  redis_data:
+  geoserver_data:

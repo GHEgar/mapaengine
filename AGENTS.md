@@ -82,12 +82,17 @@ tsc --noEmit             # type-checking estricto
 # test/build: TODO — definir runner (vitest/jest) y bundler (vite) al hacer scaffolding
 ```
 
-**Stack completo (Docker):**
+**Stack local (Docker + Makefile):**
 ```bash
-cp .env.example .env     # y editar secretos
-docker compose up -d     # levantar todo
-docker compose ps        # verificar servicios
+cp .env.example .env     # configuración NO sensible (puertos, hosts, nombres de DB)
+make secrets             # genera las credenciales en ./secrets/ (idempotente)
+make up                  # infraestructura: db, redis, geoserver, pycsw, authentik
+make up-portal           # incluye backend y frontend (profile 'portal', aún placeholders)
+make help                # lista todos los comandos
 ```
+Las **credenciales** se manejan con **Docker secrets** (archivos en `./secrets/`,
+montados en `/run/secrets/<nombre>`), nunca como variables en texto plano. La
+config no sensible va en `.env`. Ver [`secrets/README.md`](./secrets/README.md).
 
 ---
 
@@ -139,6 +144,9 @@ docker compose ps        # verificar servicios
   proveedores asignados (ver sección 7).
 - ❌ **No** escribir claves de API en texto plano en ningún archivo versionado;
   usa referencias `{env:NOMBRE_VAR}`.
+- ❌ **No** poner valores reales en [`.env.example`](./.env.example): es una
+  plantilla, solo marcadores `<descripción>`. Los valores reales van en `.env`
+  (ignorado) y las credenciales en Docker secrets (`./secrets/`).
 - ❌ **No** convertir el proyecto en producto cerrado/propietario (la licencia es
   AGPL; ver [`README-licencia.md`](./README-licencia.md)).
 

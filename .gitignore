@@ -12,9 +12,15 @@
 *.pfx
 *.crt
 *credentials*
-*secret*
-secrets/
 *.token
+
+# Docker Compose secrets — nunca versionar valores; solo la estructura
+secrets/*
+!secrets/.gitkeep
+!secrets/README.md
+
+# Respaldos de base de datos
+backups/
 
 # ──────────────────────────────────────────────────────────────
 # Agentes de IA — archivos locales (NO ignorar settings.json,
