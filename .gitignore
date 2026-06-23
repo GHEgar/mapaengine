@@ -1,0 +1,62 @@
+# ──────────────────────────────────────────────────────────────
+# Secretos y variables de entorno
+# ──────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# Claves, certificados y credenciales
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*credentials*
+*secret*
+secrets/
+*.token
+
+# ──────────────────────────────────────────────────────────────
+# Agentes de IA — archivos locales (NO ignorar settings.json,
+# opencode.json, AGENTS.md ni los agentes versionados)
+# ──────────────────────────────────────────────────────────────
+.claude/settings.local.json
+
+# Auth/local de opencode
+.opencode/auth.json
+**/.opencode/auth.json
+.opencode/local/
+.opencode/cache/
+
+# ──────────────────────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+dist/
+build/
+
+# ──────────────────────────────────────────────────────────────
+# Node / Frontend
+# ──────────────────────────────────────────────────────────────
+node_modules/
+.next/
+.turbo/
+.cache/
+coverage/
+*.tsbuildinfo
+
+# ──────────────────────────────────────────────────────────────
+# Sistema operativo / editores
+# ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.log

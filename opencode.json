@@ -1,0 +1,49 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "description": "Agente principal de codificación: implementa features, edita archivos y ejecuta comandos.",
+      "model": "opencode-go/qwen3.7-max",
+      "temperature": 0.1,
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      }
+    },
+    "plan": {
+      "mode": "subagent",
+      "description": "Razona y diseña planes de implementación. Solo lectura, sin escribir ni editar.",
+      "model": "opencode-go/deepseek-v4-pro",
+      "temperature": 0.3,
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    },
+    "reviewer": {
+      "mode": "subagent",
+      "description": "Revisa cambios en busca de bugs y problemas de seguridad. No aplica cambios.",
+      "model": "opencode-go/deepseek-v4-pro",
+      "temperature": 0.2,
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": true
+      }
+    },
+    "debugger": {
+      "mode": "subagent",
+      "description": "Diagnostica fallos, corrige bugs y arregla tests.",
+      "model": "opencode-go/qwen3.7-max",
+      "temperature": 0.1,
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      }
+    }
+  }
+}
