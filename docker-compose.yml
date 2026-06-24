@@ -64,18 +64,100 @@ services:
       - geoserver_admin_password
     volumes:
       - geoserver_data:/opt/geoserver_data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/geoserver/web/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      db:
+        condition: service_healthy
+
+  geodata-init:
+    image: postgis/postgis:18-3.6
+    restart: "no"
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_USER: ${POSTGRES_USER:-mapaengine}
+      POSTGRES_DB: ${POSTGRES_DB:-mapaengine}
+    entrypoint: ["/bin/bash", "/init/init-sample-layer.sh"]
+    secrets:
+      - postgres_password
+    volumes:
+      - ./docker/db/init-sample-layer.sh:/init/init-sample-layer.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+  geoserver-init:
+    image: curlimages/curl:8.11.1
+    restart: "no"
+    user: "0:0"
+    environment:
+      GEOSERVER_ADMIN_USER: ${GEOSERVER_ADMIN_USER:-admin}
+      GEOSERVER_WORKSPACE: ${GEOSERVER_WORKSPACE:-mapaengine}
+      GEOSERVER_DATASTORE: ${GEOSERVER_DATASTORE:-mapaengine_postgis}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-mapaengine}
+      POSTGRES_USER: ${POSTGRES_USER:-mapaengine}
+    entrypoint: ["/bin/sh", "/init/init-geoserver.sh"]
+    secrets:
+      - geoserver_admin_password
+      - postgres_password
+    volumes:
+      - ./docker/geoserver/init-geoserver.sh:/init/init-geoserver.sh:ro
+    depends_on:
+      geoserver:
+        condition: service_healthy
+      geodata-init:
+        condition: service_completed_successfully
+
+  pycsw-init:
+    image: postgis/postgis:18-3.6
+    restart: "no"
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_USER: ${POSTGRES_USER:-mapaengine}
+      POSTGRES_DB: ${POSTGRES_DB:-mapaengine}
+      PYCSW_DB_USER: ${PYCSW_DB_USER:-pycsw}
+    entrypoint: ["/bin/bash", "/init/init-pycsw.sh"]
+    secrets:
+      - postgres_password
+      - pycsw_db_password
+    volumes:
+      - ./docker/db/init-pycsw.sh:/init/init-pycsw.sh:ro
     depends_on:
       db:
         condition: service_healthy
 
   pycsw:
-    image: geopython/pycsw:2.6.1
+    image: geopython/pycsw:3.0.0-beta3
     restart: unless-stopped
-    # TODO: conectar pycsw a la PostGIS 'mapaengine' (repository.database) cuando haya datos.
-    #   La imagen NO soporta *_FILE: hay que inyectar la password desde
-    #   /run/secrets/postgres_password con un entrypoint wrapper, montar un
-    #   pycsw.yml/.cfg con la conexión, e inicializar el repo (pycsw-admin setup_db).
-    #   Por ahora arranca con su repositorio sqlite de demostración.
+    user: "0:0"
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-mapaengine}
+      PYCSW_DB_USER: ${PYCSW_DB_USER:-pycsw}
+    entrypoint: ["/bin/sh", "/usr/local/bin/entrypoint-wrapper.sh"]
+    secrets:
+      - pycsw_db_password
+    volumes:
+      - ./docker/pycsw/pycsw.yml.tpl:/etc/pycsw/pycsw.yml.tpl:ro
+      - ./docker/pycsw/entrypoint-wrapper.sh:/usr/local/bin/entrypoint-wrapper.sh:ro
+    healthcheck:
+      test: ["CMD", "/venv/bin/python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/?service=CSW&version=2.0.2&request=GetCapabilities').read()"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+      pycsw-init:
+        condition: service_completed_successfully
 
   authentik-server:
     image: ghcr.io/goauthentik/server:2026.5.2
@@ -162,6 +244,8 @@ secrets:
     file: ./secrets/fastapi_secret_key
   redis_password:
     file: ./secrets/redis_password
+  pycsw_db_password:
+    file: ./secrets/pycsw_db_password
 
 volumes:
   db_data:

@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 SECRETS_DIR := secrets
-SECRETS := postgres_password authentik_postgres_password geoserver_admin_password authentik_secret_key oidc_client_secret fastapi_secret_key redis_password
+SECRETS := postgres_password authentik_postgres_password geoserver_admin_password authentik_secret_key oidc_client_secret fastapi_secret_key redis_password pycsw_db_password
 PG_USER ?= mapaengine
 PG_DB ?= mapaengine
 

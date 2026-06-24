@@ -11,6 +11,35 @@ y este proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-24
+
+### Added
+
+- **Infraestructura de despliegue con Docker Compose:** archivo base
+  [`docker-compose.yml`](./docker-compose.yml) más overrides
+  [`docker-compose.dev.yml`](./docker-compose.dev.yml) (puertos estándar) y
+  [`docker-compose.prod.yml`](./docker-compose.prod.yml) (puertos +10000,
+  `restart: always`), orquestados por el [`Makefile`](./Makefile)
+  (`secrets`, `up`, `deploy`, `down`, `clean`, `ps`, `up-portal`, `logs`,
+  `psql`, `backup-db`, `restore-db`). Servicios: PostGIS, Redis, GeoServer,
+  pycsw, Authentik (server+worker) y placeholders backend/frontend bajo el
+  profile `portal`.
+- **Gestión de credenciales con Docker secrets** (archivos en `./secrets/`,
+  chmod 600, ignorados por git, generados de forma idempotente por
+  `make secrets`); contenedor efímero `db-init` que crea el rol y la base de
+  Authentik en la PostGIS compartida.
+- **pycsw 3.0 conectado a PostGIS:** rol y esquema `pycsw` dedicados en la base
+  `mapaengine` (contenedor `pycsw-init`, idempotente), configuración YAML por
+  bind-mount y un entrypoint wrapper que inyecta la password desde el nuevo
+  secreto `pycsw_db_password` en runtime (la imagen no soporta `*_FILE`).
+  Healthcheck por `GetCapabilities`; expone CSW 2.0.2 y OGC API Records sobre el
+  repositorio PostGIS.
+- **Aprovisionamiento automático de GeoServer** vía API REST (contenedor
+  `geoserver-init`): workspace `mapaengine`, data store PostGIS
+  `mapaengine_postgis` apuntando a la base `mapaengine` y una capa de ejemplo
+  `ejemplo_puntos` (tabla sembrada por `geodata-init`). Todo idempotente y sin
+  exponer credenciales en compose ni logs. Healthcheck añadido a GeoServer.
+
 ## [0.1.0] - 2026-06-23
 
 ### Added
@@ -35,5 +64,6 @@ y este proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es
 - `.gitignore` y [`.env.example`](./.env.example) para excluir secretos y
   documentar las variables de entorno del stack.
 
-[Unreleased]: https://github.com/GHEgar/mapaengine/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/GHEgar/mapaengine/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/GHEgar/mapaengine/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/GHEgar/mapaengine/releases/tag/v0.1.0
