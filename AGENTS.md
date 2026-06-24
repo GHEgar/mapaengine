@@ -84,12 +84,18 @@ tsc --noEmit             # type-checking estricto
 
 **Stack local (Docker + Makefile):**
 ```bash
-cp .env.example .env     # configuración NO sensible (puertos, hosts, nombres de DB)
-make secrets             # genera las credenciales en ./secrets/ (idempotente)
-make up                  # infraestructura: db, redis, geoserver, pycsw, authentik
-make up-portal           # incluye backend y frontend (profile 'portal', aún placeholders)
-make help                # lista todos los comandos
+make secrets   # genera las credenciales en ./secrets/ (idempotente)
+make up        # levanta DEVELOP  (proyecto mapaengine-dev, puertos estándar)
+make deploy    # levanta PRODUCTION (proyecto mapaengine, puertos +10000); corre a la vez que dev
+make down      # baja AMBOS entornos
+make clean     # baja AMBOS y borra volúmenes/datos (pide confirmación)
+make ps        # estado de ambos entornos
+make help      # todos los comandos (auxiliares como logs/psql aceptan ENV=dev|prod)
 ```
+Arquitectura dev/prod: `docker-compose.yml` (base común) + `docker-compose.dev.yml`
+y `docker-compose.prod.yml` (puertos y restart por entorno). Secretos compartidos;
+los datos quedan separados por proyecto. El contenedor `db-init` corre una vez
+(crea rol+base de Authentik) y se autoelimina tras completar.
 Las **credenciales** se manejan con **Docker secrets** (archivos en `./secrets/`,
 montados en `/run/secrets/<nombre>`), nunca como variables en texto plano. La
 config no sensible va en `.env`. Ver [`secrets/README.md`](./secrets/README.md).
@@ -121,7 +127,9 @@ config no sensible va en `.env`. Ver [`secrets/README.md`](./secrets/README.md).
   obligatoria.
 - Todo archivo fuente nuevo lleva la **cabecera de licencia AGPL** (ver
   [`CABECERAS.md`](./CABECERAS.md)).
-- Commits estilo **Conventional Commits** (`feat:`, `fix:`, `docs:`…).
+- Commits estilo **Conventional Commits** (`feat:`, `fix:`, `docs:`…), de
+  **máximo 2 líneas** (idealmente solo el *subject*). Nada de cuerpos largos:
+  si hace falta más detalle, va en el PR o en el CHANGELOG, no en el commit.
 - Cambios notables se registran en [`CHANGELOG.md`](./CHANGELOG.md)
   (Keep a Changelog + SemVer).
 

@@ -1,0 +1,44 @@
+# Override de PRODUCTION. Combínalo con el base:
+#   docker compose -p mapaengine -f docker-compose.yml -f docker-compose.prod.yml ...
+# (el Makefile lo hace con 'make deploy'). Proyecto: 'mapaengine' (sin sufijo).
+# Puertos = los de dev + 10000, para correr dev y prod a la vez sin chocar.
+# restart: always en los servicios de larga duración.
+
+services:
+  db:
+    restart: always
+    ports:
+      - "15432:5432"
+
+  redis:
+    restart: always
+    ports:
+      - "16379:6379"
+
+  geoserver:
+    restart: always
+    ports:
+      - "18080:8080"
+
+  pycsw:
+    restart: always
+    ports:
+      - "18000:8000"
+
+  authentik-server:
+    restart: always
+    ports:
+      - "19000:9000"
+
+  authentik-worker:
+    restart: always
+
+  backend:
+    restart: always
+    ports:
+      - "18001:8000"
+
+  frontend:
+    restart: always
+    ports:
+      - "13000:3000"

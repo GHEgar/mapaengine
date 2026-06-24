@@ -1,0 +1,33 @@
+# Override de DESARROLLO. Combínalo con el base:
+#   docker compose -p mapaengine-dev -f docker-compose.yml -f docker-compose.dev.yml ...
+# (el Makefile lo hace con ENV=dev, que es el valor por defecto).
+# Puertos estándar en localhost.
+
+services:
+  db:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  geoserver:
+    ports:
+      - "8080:8080"
+
+  pycsw:
+    ports:
+      - "8000:8000"
+
+  authentik-server:
+    ports:
+      - "9000:9000"
+
+  backend:
+    ports:
+      - "8001:8000"
+
+  frontend:
+    ports:
+      - "3000:3000"
